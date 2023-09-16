@@ -1,4 +1,3 @@
-import time
 import tkinter as tk
 import serial
 from serial.tools import list_ports
@@ -13,6 +12,7 @@ class MainWindow:
     def __init__(self):
         self.main_window = tk.Tk()
         self.main_window.title('COM-PORT')
+        self.main_window.resizable(False, False)
 
         self.port = None
         self.count_stop_bites = serial.STOPBITS_ONE
@@ -23,28 +23,38 @@ class MainWindow:
         self.open_port()
         self.auto_detect_ports()
 
-        bytes_thread = Thread(target=self.count_accepted_bytes_thread, args=(), daemon=True)
-        bytes_thread.start()
         read_thread = Thread(target=self.read_data_thread, args=(), daemon=True)
         read_thread.start()
 
     def create_interface(self):
-        for c in range(2): self.main_window.columnconfigure(index=c, weight=1)
-        for r in range(3): self.main_window.rowconfigure(index=r, weight=1)
 
         # Окно ввода
         input_frame = tk.Frame(master=self.main_window, relief=tk.RIDGE, borderwidth=5)
         input_frame.grid(row=0, column=0, padx=5, pady=5)
-        input_text = tk.Text(master=input_frame, height=10, width=25)
+        input_label = tk.Label(master=input_frame, text="Input")
+        input_label.pack()
+
+        input_scroll = tk.Scrollbar(input_frame, orient='vertical')
+        input_scroll.pack(side=tk.RIGHT, fill='y')
+
+        input_text = tk.Text(master=input_frame, height=15, width=40, yscrollcommand=input_scroll.set)
         input_text.bind("<Key>", self.on_input_update)
         input_text.bind("<Return>", self.on_enter_update, add="+")
+        input_scroll.config(command=input_text.yview)
         input_text.pack()
 
         # Окно вывода
         output_frame = tk.Frame(master=self.main_window, relief=tk.RIDGE, borderwidth=5)
         output_frame.grid(row=0, column=1, padx=5, pady=5)
-        self.output_text = tk.Text(master=output_frame, height=10, width=25)
+        output_label = tk.Label(master=output_frame, text="Output")
+        output_label.pack()
+
+        output_scroll = tk.Scrollbar(output_frame, orient='vertical')
+        output_scroll.pack(side=tk.RIGHT, fill='y')
+
+        self.output_text = tk.Text(master=output_frame, height=15, width=40, yscrollcommand=output_scroll.set)
         self.output_text.config(state="disabled")
+        output_scroll.config(command=self.output_text.yview)
         self.output_text.pack()
 
         # Окно управления
@@ -58,7 +68,7 @@ class MainWindow:
         self.com_port_var = tk.StringVar()
         self.com_port_menu = tk.OptionMenu(top_control_frame, self.com_port_var, "")
         self.com_port_menu.pack(side=tk.LEFT)
-        connect_button = tk.Button(top_control_frame, text="Connect", command=self.connect_to_port)
+        connect_button = tk.Button(top_control_frame, text="Choose", command=self.connect_to_port)
         connect_button.pack(side=tk.LEFT)
 
         top_control_frame.pack()
@@ -78,18 +88,31 @@ class MainWindow:
 
         bottom_control_frame.pack()
 
+        self.current_com_port_label = tk.Label(master=control_frame, text="Current COM-port:")
+        self.current_com_port_label.pack()
+
         # Окно состояния
         status_frame = tk.Frame(master=self.main_window, relief=tk.RIDGE, borderwidth=5)
         status_frame.grid(row=1, column=1, padx=5, pady=5)
-        self.status_text = tk.Text(master=status_frame, height=10, width=25)
+
+        status_scroll = tk.Scrollbar(status_frame, orient='vertical')
+        status_scroll.pack(side=tk.RIGHT, fill='y')
+
+        self.status_text = tk.Text(master=status_frame, height=10, width=25, yscrollcommand=status_scroll.set)
         self.status_text.config(state="disabled")
+        status_scroll.config(command=self.status_text.yview)
         self.status_text.pack()
 
         # Опциональное отладочное окно
         log_frame = tk.Frame(master=self.main_window, relief=tk.RIDGE, borderwidth=5)
         log_frame.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
-        self.log_text = tk.Text(master=log_frame, height=10, width=25)
+
+        log_scroll = tk.Scrollbar(log_frame, orient='vertical')
+        log_scroll.pack(side=tk.RIGHT, fill='y')
+
+        self.log_text = tk.Text(master=log_frame, height=12, width=60, yscrollcommand=log_scroll.set)
         self.log_text.config(state="disabled")
+        log_scroll.config(command=self.log_text.yview)
         self.log_text.pack()
 
     def auto_detect_ports(self):
@@ -105,6 +128,7 @@ class MainWindow:
             try:
                 self.port = serial.Serial('COM' + str(port), self.speed, stopbits=self.count_stop_bites)
                 self.make_log(f"Port is open. Now you can send and receive data\n")
+                self.current_com_port_label["text"] = f"Current COM-port: {self.port.port}"
                 break
             except serial.SerialException:
                 continue
@@ -118,6 +142,7 @@ class MainWindow:
             self.port.close()
             self.port = serial.Serial("COM" + port, self.speed, stopbits=self.count_stop_bites)
             self.make_log(f"Connected to {port}\n")
+            self.current_com_port_label["text"] = f"Current COM-port: {self.port.port}"
         except serial.SerialException as e:
             self.make_log(f"Error: {str(e)}\n")
             self.port = serial.Serial(current_port, self.speed, stopbits=self.count_stop_bites)
@@ -138,8 +163,8 @@ class MainWindow:
                         self.make_log(f"Stop Bits set to {serial.STOPBITS_TWO}")
                     case _:
                         self.make_log(f"No one matched")
-            except ValueError:
-                self.make_log("Invalid Stop Bits value")
+            except serial.serialutil.SerialException as e:
+                self.make_log(f"Invalid Stop Bits value\n {e}")
         else:
             self.make_log("Port is closed")
 
@@ -172,17 +197,15 @@ class MainWindow:
         self.status_text.insert(tk.END, message + '\n')
         self.status_text.config(state='disabled')
 
-    def count_accepted_bytes_thread(self):
+    def read_data_thread(self):
         self.make_status(f"COM-port speed = {self.speed}")
         while True:
-            message = f"Accepted bytes = {self.count_accepted_bytes}"
-            self.make_status(message)
-            time.sleep(10)
-
-    def read_data_thread(self):
-        while True:
             out = self.port.read(1).decode('cp1251')
-            self.count_accepted_bytes += 1
+            if len(out) != 0:
+                self.count_accepted_bytes += 1
+                message = f"Accepted bytes = {self.count_accepted_bytes}"
+                self.make_status(message)
+
             self.output_text.config(state='normal')
             self.output_text.insert(tk.END, out)
             self.output_text.config(state='disabled')
