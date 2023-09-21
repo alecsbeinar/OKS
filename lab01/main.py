@@ -59,9 +59,9 @@ class MainWindow:
 
         # Окно управления
         control_frame = tk.Frame(master=self.main_window, relief=tk.RIDGE, borderwidth=5)
-        control_frame.grid(row=1, column=0, padx=5, pady=5)
-        top_control_frame = tk.Frame(control_frame)
-        bottom_control_frame = tk.Frame(control_frame)
+        control_frame.grid(row=1, column=0, padx=5, pady=5, ipadx=35)
+        top_control_frame = tk.Frame(control_frame, pady=7)
+        bottom_control_frame = tk.Frame(control_frame, pady=7)
 
         com_port_label = tk.Label(master=top_control_frame, text="COM Port:")
         com_port_label.pack(side=tk.LEFT)
@@ -71,7 +71,7 @@ class MainWindow:
         connect_button = tk.Button(top_control_frame, text="Choose", command=self.connect_to_port)
         connect_button.pack(side=tk.LEFT)
 
-        top_control_frame.pack()
+        top_control_frame.pack(side=tk.TOP)
 
         self.stopbits_label = tk.Label(bottom_control_frame, text="Stop Bits:")
         self.stopbits_label.pack(side=tk.LEFT)
@@ -86,10 +86,14 @@ class MainWindow:
         self.apply_button = tk.Button(bottom_control_frame, text="Apply", command=self.apply_settings)
         self.apply_button.pack(side=tk.LEFT)
 
-        bottom_control_frame.pack()
+        bottom_control_frame.pack(side=tk.TOP)
 
-        self.current_com_port_label = tk.Label(master=control_frame, text="Current COM-port:")
-        self.current_com_port_label.pack()
+        self.current_com_port_label = tk.Label(master=control_frame, text="Current COM-port:", height=2)
+        self.current_com_port_label.pack(side=tk.TOP)
+
+        self.current_count_stop_bits = tk.Label(master=control_frame, text="Current count stop-bits:", height=2)
+        self.current_count_stop_bits.pack(side=tk.TOP)
+
 
         # Окно состояния
         status_frame = tk.Frame(master=self.main_window, relief=tk.RIDGE, borderwidth=5)
@@ -98,7 +102,7 @@ class MainWindow:
         status_scroll = tk.Scrollbar(status_frame, orient='vertical')
         status_scroll.pack(side=tk.RIGHT, fill='y')
 
-        self.status_text = tk.Text(master=status_frame, height=10, width=25, yscrollcommand=status_scroll.set)
+        self.status_text = tk.Text(master=status_frame, height=10, width=30, yscrollcommand=status_scroll.set)
         self.status_text.config(state="disabled")
         status_scroll.config(command=self.status_text.yview)
         self.status_text.pack()
@@ -129,6 +133,7 @@ class MainWindow:
                 self.port = serial.Serial('COM' + str(port), self.speed, stopbits=self.count_stop_bites)
                 self.make_log(f"Port is open. Now you can send and receive data\n")
                 self.current_com_port_label["text"] = f"Current COM-port: {self.port.port}"
+                self.current_count_stop_bits["text"] = f"Current count stop-bits: {self.count_stop_bites}"
                 break
             except serial.SerialException:
                 continue
@@ -143,6 +148,7 @@ class MainWindow:
             self.port = serial.Serial("COM" + port, self.speed, stopbits=self.count_stop_bites)
             self.make_log(f"Connected to {port}\n")
             self.current_com_port_label["text"] = f"Current COM-port: {self.port.port}"
+            self.current_count_stop_bits["text"] = f"Current count stop-bits: {self.count_stop_bites}"
         except serial.SerialException as e:
             self.make_log(f"Error: {str(e)}\n")
             self.port = serial.Serial(current_port, self.speed, stopbits=self.count_stop_bites)
@@ -157,10 +163,12 @@ class MainWindow:
                         self.port.stopbits = serial.STOPBITS_ONE
                         self.count_stop_bites = serial.STOPBITS_ONE
                         self.make_log(f"Stop Bits set to {serial.STOPBITS_ONE}")
+                        self.current_count_stop_bits["text"] = f"Current count stop-bits: {self.count_stop_bites}"
                     case serial.STOPBITS_TWO:
                         self.port.stopbits = serial.STOPBITS_TWO
                         self.count_stop_bites = serial.STOPBITS_TWO
                         self.make_log(f"Stop Bits set to {serial.STOPBITS_TWO}")
+                        self.current_count_stop_bits["text"] = f"Current count stop-bits: {self.count_stop_bites}"
                     case _:
                         self.make_log(f"No one matched")
             except serial.serialutil.SerialException as e:
@@ -190,11 +198,13 @@ class MainWindow:
     def make_log(self, message):
         self.log_text.config(state='normal')
         self.log_text.insert(tk.END, message + '\n')
+        self.log_text.see("end")
         self.log_text.config(state='disabled')
 
     def make_status(self, message):
         self.status_text.config(state='normal')
         self.status_text.insert(tk.END, message + '\n')
+        self.status_text.see("end")
         self.status_text.config(state='disabled')
 
     def read_data_thread(self):
@@ -203,11 +213,12 @@ class MainWindow:
             out = self.port.read(1).decode('cp1251')
             if len(out) != 0:
                 self.count_accepted_bytes += 1
-                message = f"Accepted bytes = {self.count_accepted_bytes}"
+                message = f"Total accepted bytes = {self.count_accepted_bytes}"
                 self.make_status(message)
 
             self.output_text.config(state='normal')
             self.output_text.insert(tk.END, out)
+            self.output_text.see("end")
             self.output_text.config(state='disabled')
 
 
