@@ -75,7 +75,7 @@ class MainWindow:
 
         self.stopbits_label = tk.Label(bottom_control_frame, text="Stop Bits:")
         self.stopbits_label.pack(side=tk.LEFT)
-        stop_bits_values = list(map(str, [serial.STOPBITS_ONE, serial.STOPBITS_TWO]))
+        stop_bits_values = list(map(str, [serial.STOPBITS_ONE, serial.STOPBITS_ONE_POINT_FIVE, serial.STOPBITS_TWO]))
         self.stopbits_var = tk.StringVar()
         self.stopbits_menu = tk.OptionMenu(bottom_control_frame, self.stopbits_var, "")
         self.stopbits_menu.pack(side=tk.LEFT)
@@ -169,6 +169,11 @@ class MainWindow:
                         self.count_stop_bites = serial.STOPBITS_TWO
                         self.make_log(f"Stop Bits set to {serial.STOPBITS_TWO}")
                         self.current_count_stop_bits["text"] = f"Current count stop-bits: {self.count_stop_bites}"
+                    case serial.STOPBITS_ONE_POINT_FIVE:
+                        self.port.stopbits = serial.STOPBITS_ONE_POINT_FIVE
+                        self.count_stop_bites = serial.STOPBITS_ONE_POINT_FIVE
+                        self.make_log(f"Stop Bits set to {serial.STOPBITS_ONE_POINT_FIVE}")
+                        self.current_count_stop_bits["text"] = f"Current count stop-bits: {self.count_stop_bites}"
                     case _:
                         self.make_log(f"No one matched")
             except serial.serialutil.SerialException as e:
@@ -210,16 +215,20 @@ class MainWindow:
     def read_data_thread(self):
         self.make_status(f"COM-port speed = {self.speed}")
         while True:
-            out = self.port.read(1).decode('cp1251')
-            if len(out) != 0:
-                self.count_accepted_bytes += 1
-                message = f"Total accepted bytes = {self.count_accepted_bytes}"
-                self.make_status(message)
+            try:
+                while self.port.inWaiting() > 0:
+                    out = self.port.read(1).decode('cp1251')
+                    if len(out) != 0:
+                        self.count_accepted_bytes += 1
+                        message = f"Total accepted bytes = {self.count_accepted_bytes}"
+                        self.make_status(message)
 
-            self.output_text.config(state='normal')
-            self.output_text.insert(tk.END, out)
-            self.output_text.see("end")
-            self.output_text.config(state='disabled')
+                    self.output_text.config(state='normal')
+                    self.output_text.insert(tk.END, out)
+                    self.output_text.see("end")
+                    self.output_text.config(state='disabled')
+            except serial.serialutil.SerialException:
+                continue
 
 
 if __name__ == "__main__":
