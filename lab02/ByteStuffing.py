@@ -67,8 +67,6 @@ class ByteStuffing:
                 if (stuff_package_list[i] == self.esc and
                         stuff_package_list[i + 1] == self.replaced_esc_byte):
                     all_stuffs += [i, i + 1]
-                next(it)
-
         all_stuffs.sort()
         return all_stuffs
 

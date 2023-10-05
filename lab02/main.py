@@ -194,7 +194,9 @@ class MainWindow:
 
         self.cache += event.char
         if len(self.cache) == 3:
-            sending_data = self.byte_stuffing.stuffing(self.cache, self.port.port.replace("COM", "")).encode("cp1251")
+            stuff_package = self.byte_stuffing.stuffing(self.cache, self.port.port.replace("COM", ""))
+            sending_data = stuff_package.encode("cp1251")
+            self.make_stuff_package_status(stuff_package)
             self.send_data(sending_data)
             self.cache = ""
 
@@ -263,7 +265,6 @@ class MainWindow:
                     real_bytes = str(self.count_accepted_bytes / 2)
                     message = f"Total accepted bytes = {real_bytes[:real_bytes.find('.')]}"
                     self.make_output(payload)
-                    self.make_stuff_package_status(stuff_package)
                     self.make_status(message)
 
             except serial.serialutil.SerialException:
