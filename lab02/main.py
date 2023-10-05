@@ -248,6 +248,14 @@ class MainWindow:
         self.output_text.see("end")
         self.output_text.config(state='disabled')
 
+    def make_stuff_package_output(self, stuff_package: str):
+        if stuff_package != "":
+            package = self.byte_stuffing.unstuffing(stuff_package)
+            payload = self.byte_stuffing.get_payload(package)
+            message = f"Total accepted bytes = {self.count_accepted_bytes}"
+            self.make_output(payload)
+            self.make_status(message)
+
     def read_data_thread(self):
         self.make_status(f"COM-port speed = {self.speed}")
         while True:
@@ -255,17 +263,14 @@ class MainWindow:
                 stuff_package = ""
                 while self.port.inWaiting() > 0:
                     out = self.port.read(1).decode('cp1251')
-                    if len(out) != 0:
-                        self.count_accepted_bytes += 1
+                    self.count_accepted_bytes += 1
                     stuff_package += out
 
-                if stuff_package != "":
-                    package = self.byte_stuffing.unstuffing(stuff_package)
-                    payload = self.byte_stuffing.get_payload(package)
-                    real_bytes = str(self.count_accepted_bytes / 2)
-                    message = f"Total accepted bytes = {real_bytes[:real_bytes.find('.')]}"
-                    self.make_output(payload)
-                    self.make_status(message)
+                    if len(stuff_package) > 2 and stuff_package[-2:] == self.byte_stuffing.flag:
+                        self.make_stuff_package_output(stuff_package[:-2])
+                        stuff_package = self.byte_stuffing.flag
+
+                self.make_stuff_package_output(stuff_package)
 
             except serial.serialutil.SerialException:
                 continue
