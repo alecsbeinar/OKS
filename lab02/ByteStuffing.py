@@ -1,3 +1,6 @@
+import binascii
+
+
 class ByteStuffing:
     def __init__(self):
         self.n = 3
@@ -24,22 +27,25 @@ class ByteStuffing:
     def package2string(self, package: str) -> str:
         string = package[:len(self.flag + self.destination_address)]
         package = package[len(self.flag + self.destination_address):]
-        string += str(int(ord(package[:self.len_source_address])))
+        num_port = package[:self.len_source_address]
+        number = int(ord(num_port))
+        string += str(number)
         package = package[self.len_source_address:]
         string += package
         return string
 
-    def get_index_of_stuffs(self, stuff_package: str) -> list:
+    def get_index_of_stuffs(self, stuff_package: str, com_port: str) -> list:
         all_stuffs = []
+        addition = len(com_port) - 1
 
         for i in range(len(stuff_package)):
             if i < len(stuff_package) - 1:
                 if (stuff_package[i] == self.esc and
                         stuff_package[i + 1] == self.replaced_flag_byte):
-                    all_stuffs += [i, i + 1]
+                    all_stuffs += [i + addition, i + 1 + addition]
                 if (stuff_package[i] == self.esc and
                         stuff_package[i + 1] == self.replaced_esc_byte):
-                    all_stuffs += [i, i + 1]
+                    all_stuffs += [i + addition, i + 1 + addition]
         all_stuffs.sort()
         return all_stuffs
 

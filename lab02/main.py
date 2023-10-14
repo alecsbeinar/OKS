@@ -195,7 +195,7 @@ class MainWindow:
         self.cache += event.char
         if len(self.cache) == 3:
             stuff_package = self.byte_stuffing.stuffing(self.cache, self.port.port.replace("COM", ""))
-            sending_data = stuff_package.encode("cp1251")
+            sending_data = stuff_package.encode("utf-8")
             self.make_stuff_package_status(stuff_package)
             self.send_data(sending_data)
             self.cache = ""
@@ -233,7 +233,7 @@ class MainWindow:
         self.status_text.config(state='disabled')
 
     def make_stuff_package_status(self, stuff_package: str):
-        all_stuffs = self.byte_stuffing.get_index_of_stuffs(stuff_package)
+        all_stuffs = self.byte_stuffing.get_index_of_stuffs(stuff_package, self.port.port.replace("COM", ""))
         str_stuff_package = self.byte_stuffing.package2string(stuff_package)
         for i in range(len(str_stuff_package)):
             if i in all_stuffs:
@@ -262,13 +262,13 @@ class MainWindow:
             try:
                 stuff_package = ""
                 while self.port.inWaiting() > 0:
-                    out = self.port.read(1).decode('cp1251')
+                    out = self.port.read(1)
                     self.count_accepted_bytes += 1
-                    stuff_package += out
-
-                    if len(stuff_package) > 2 and stuff_package[-2:] == self.byte_stuffing.flag:
-                        self.make_stuff_package_output(stuff_package[:-2])
-                        stuff_package = self.byte_stuffing.flag
+                    try:
+                        stuff_package += out.decode("utf-8")
+                    except UnicodeDecodeError:
+                        out += self.port.read(1)
+                        stuff_package += out.decode("utf-8")
 
                 self.make_stuff_package_output(stuff_package)
 
