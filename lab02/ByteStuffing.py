@@ -49,6 +49,13 @@ class ByteStuffing:
         all_stuffs.sort()
         return all_stuffs
 
+    def get_index_of_num_port(self, stuff_package: str, com_port: str) -> list:
+        all_indexes = []
+        start = stuff_package.index(chr(int(com_port)))
+        for i in range(start, start + len(com_port)):
+            all_indexes.append(i)
+        return all_indexes
+
     def stuffing(self, data: str, com_port: str) -> str:
         package = self.create_package(data, com_port)
         package_wo_flag = list(package[len(self.flag):])

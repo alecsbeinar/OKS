@@ -110,6 +110,7 @@ class MainWindow:
                                    yscrollcommand=status_scroll.set)
         self.status_text.config(state="disabled")
         self.status_text.tag_configure("bold", font="Helvetica 10 bold")
+        self.status_text.tag_configure("port", foreground="red")
         status_scroll.config(command=self.status_text.yview)
         self.status_text.pack()
 
@@ -232,12 +233,21 @@ class MainWindow:
         self.status_text.see("end")
         self.status_text.config(state='disabled')
 
+    def make_num_port_status(self, message):
+        self.status_text.config(state='normal')
+        self.status_text.insert(tk.END, message, "port")
+        self.status_text.see("end")
+        self.status_text.config(state='disabled')
+
     def make_stuff_package_status(self, stuff_package: str):
         all_stuffs = self.byte_stuffing.get_index_of_stuffs(stuff_package, self.port.port.replace("COM", ""))
+        index_num_port = self.byte_stuffing.get_index_of_num_port(stuff_package, self.port.port.replace("COM", ""))
         str_stuff_package = self.byte_stuffing.package2string(stuff_package)
         for i in range(len(str_stuff_package)):
             if i in all_stuffs:
                 self.make_bold_status(str_stuff_package[i], '')
+            elif i in index_num_port:
+                self.make_num_port_status(str_stuff_package[i])
             else:
                 self.make_status(str_stuff_package[i], '')
         self.make_status('')
