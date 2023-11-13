@@ -15,6 +15,7 @@ class ByteStuffing:
         self.len_destination_address = 1
         self.len_data = 3
         self.lfcs = 1
+        self.package_len = self.len_flag + self.len_destination_address + self.len_source_address + self.len_data + self.lfcs
 
         self.null_str = "0"
         self.destination_address = self.null_str
@@ -40,9 +41,14 @@ class ByteStuffing:
             previous_el = package[i]
         return ''.join(slc)
 
+    def is_valid_package(self, package: str) -> bool:
+        return len(package) - package.count(self.esc + self.replaced_esc_byte) == self.package_len
+
+
     def get_payload(self, stuff_pack: str) -> str:
         start_index = self.len_flag + self.len_destination_address + self.len_source_address
         length = 3
+        # return self.dynamic_slicing(stuff_pack, start_index, length)
         if stuff_pack.endswith(self.get_fcs(stuff_pack)):
             return self.dynamic_slicing(stuff_pack, start_index, length)
         else:
@@ -75,10 +81,8 @@ class ByteStuffing:
         string += data
         cur_index = self.get_start_index_fcs(package, "1")
         fcs = package[cur_index:]
-        print(string)
-        print(fcs)
-        string += "0x" + ''.join([str(hex(ord(c)))[2:] for c in fcs])
-        print(string)
+        fcs_value = ''.join([str(hex(ord(c)))[2:] for c in fcs])
+        string += "0x" + ("0" if len(fcs_value) == 1 else "") + fcs_value
         return string
 
     def get_index_of_stuffs(self, stuff_package: str, com_port: str) -> list:
@@ -136,10 +140,8 @@ class ByteStuffing:
 
             return self.flag + "".join(stuff_package_wo_flag)
         else:
-            print(stuff_package)
-            print("Error")
+            print(f"Unstuffing error: {stuff_package}")
             return ""
-
 
 # if __name__ == "__main__":
 #     byte_stuffing = ByteStuffing()

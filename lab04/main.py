@@ -4,6 +4,7 @@ from serial.tools import list_ports
 from threading import Thread
 
 from ByteStuffing import ByteStuffing
+from CSMA import Csma
 from CRC import CRC
 
 
@@ -17,7 +18,7 @@ class MainWindow:
         self.main_window.title('COM-PORT')
         self.main_window.resizable(False, False)
 
-        self.port = None
+        self.port = serial.Serial()
         self.count_stop_bites = serial.STOPBITS_ONE
         self.count_accepted_bytes = 0
         self.speed = 115200
@@ -26,6 +27,7 @@ class MainWindow:
         self.byte_stuffing = ByteStuffing()
 
         self.crc = CRC()
+        self.csma = Csma()
 
         self.create_interface()
         self.open_port()
@@ -47,7 +49,7 @@ class MainWindow:
 
         input_text = tk.Text(master=input_frame, height=15, width=40, yscrollcommand=input_scroll.set)
         input_text.bind("<Key>", self.on_input_update)
-        input_text.bind("<Return>", self.on_enter_update, add="+")
+        # input_text.bind("<Return>", self.on_enter_update, add="+")
         input_scroll.config(command=input_text.yview)
         input_text.pack()
 
@@ -202,24 +204,22 @@ class MainWindow:
             bin_cache = self.crc.string_to_binary(self.cache)
             fcs = chr(self.crc.get_fcs(bin_cache))
             stuff_package = self.byte_stuffing.stuffing(self.cache, self.port.port.replace("COM", ""), fcs)
-            sending_data = stuff_package.encode("utf-8")
-            self.make_stuff_package_status(stuff_package)
-            self.send_data(sending_data)
+            collision_counter = self.send_data(stuff_package)
+
+            if collision_counter >= 0:
+                self.make_stuff_package_status(stuff_package, collision_counter)
+            else:
+                self.make_log("Maximum number of retransmission attempts is reached")
+
             self.cache = ""
 
-    def on_enter_update(self, event):
-        if len(list(serial.tools.list_ports.comports())) == 0:
-            self.open_port()
-        self.send_data(b"\n")
+    # def on_enter_update(self, event):
+    #     if len(list(serial.tools.list_ports.comports())) == 0:
+    #         self.open_port()
+    #     self.send_data("\n")
 
-    def send_data(self, data):
-        try:
-            if self.port:
-                self.port.write(data)
-            else:
-                self.make_log('Port is closed')
-        except serial.SerialException:
-            self.make_log('Error writing to port')
+    def send_data(self, data: str) -> int:
+        return self.csma.carrier_transmission(self.port, data)
 
     def make_log(self, message):
         self.log_text.config(state='normal')
@@ -251,10 +251,9 @@ class MainWindow:
         self.status_text.see("end")
         self.status_text.config(state='disabled')
 
-    def make_stuff_package_status(self, stuff_package: str):
+    def make_stuff_package_status(self, stuff_package: str, collision_count: int):
         all_stuffs = self.byte_stuffing.get_index_of_stuffs(stuff_package, self.port.port.replace("COM", ""))
         index_num_port = self.byte_stuffing.get_index_of_num_port(stuff_package, self.port.port.replace("COM", ""))
-        # TODO: если порт > 9 неправильно выделяет
         index_fcs = self.byte_stuffing.get_start_index_fcs(stuff_package, self.port.port.replace("COM", ""))
         is_first_fcs = True
 
@@ -272,13 +271,18 @@ class MainWindow:
                 self.make_fcs_status(str_stuff_package[i])
             else:
                 self.make_status(str_stuff_package[i], '')
-        self.make_status('')
+
+        self.make_status(' ', '')
+        self.make_status('c' * collision_count)
 
     def make_output(self, message: str):
         self.output_text.config(state='normal')
         self.output_text.insert(tk.END, message)
         self.output_text.see("end")
         self.output_text.config(state='disabled')
+
+    def delete_last_output(self):
+        self.output_text.delete("end-3c", tk.END)
 
     def make_stuff_package_output(self, stuff_package: str):
         if stuff_package != "":
@@ -291,19 +295,37 @@ class MainWindow:
 
     def read_data_thread(self):
         self.make_status(f"COM-port speed = {self.speed}")
+        stuff_package = ""
         while True:
             try:
-                stuff_package = ""
                 while self.port.inWaiting() > 0:
                     out = self.port.read(1)
                     self.count_accepted_bytes += 1
+
                     try:
                         stuff_package += out.decode("utf-8")
                     except UnicodeDecodeError:
                         out += self.port.read(1)
                         stuff_package += out.decode("utf-8")
+
+                    if stuff_package == self.csma.jam_signal:
+                        self.delete_last_output()
+                        stuff_package = ""
+
+                    if len(stuff_package) > 8 and stuff_package.endswith(self.byte_stuffing.flag):
+                        current_package = stuff_package[:-self.byte_stuffing.len_flag]
+                        next_package = stuff_package[-self.byte_stuffing.len_flag:]
+                        if not current_package.endswith(self.csma.jam_signal):
+                            self.make_stuff_package_output(current_package)
+                        stuff_package = next_package
+
                 if len(stuff_package) >= 8:
-                    self.make_stuff_package_output(stuff_package)
+                    print(stuff_package)
+                    if stuff_package.endswith(self.csma.jam_signal):
+                        stuff_package = ""
+                    elif self.byte_stuffing.is_valid_package(stuff_package):
+                        self.make_stuff_package_output(stuff_package)
+                        stuff_package = ""
 
             except serial.serialutil.SerialException:
                 continue

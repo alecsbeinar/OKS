@@ -254,7 +254,6 @@ class MainWindow:
     def make_stuff_package_status(self, stuff_package: str):
         all_stuffs = self.byte_stuffing.get_index_of_stuffs(stuff_package, self.port.port.replace("COM", ""))
         index_num_port = self.byte_stuffing.get_index_of_num_port(stuff_package, self.port.port.replace("COM", ""))
-        # TODO: если порт > 9 неправильно выделяет
         index_fcs = self.byte_stuffing.get_start_index_fcs(stuff_package, self.port.port.replace("COM", ""))
         is_first_fcs = True
 
