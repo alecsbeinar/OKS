@@ -1,3 +1,4 @@
+import time
 import tkinter as tk
 import serial
 from serial.tools import list_ports
@@ -309,7 +310,7 @@ class MainWindow:
                         stuff_package += out.decode("utf-8")
 
                     if stuff_package == self.csma.jam_signal:
-                        self.delete_last_output()
+                        # self.delete_last_output()
                         stuff_package = ""
 
                     if len(stuff_package) > 8 and stuff_package.endswith(self.byte_stuffing.flag):
@@ -320,11 +321,28 @@ class MainWindow:
                         stuff_package = next_package
 
                 if len(stuff_package) >= 8:
-                    print(stuff_package)
                     if stuff_package.endswith(self.csma.jam_signal):
                         stuff_package = ""
                     elif self.byte_stuffing.is_valid_package(stuff_package):
-                        self.make_stuff_package_output(stuff_package)
+                        time.sleep(0.001)
+
+                        temp = ""
+                        while self.port.inWaiting() > 0:
+                            out = self.port.read(1)
+                            self.count_accepted_bytes += 1
+
+                            try:
+                                temp += out.decode("utf-8")
+                            except UnicodeDecodeError:
+                                out += self.port.read(1)
+                                temp += out.decode("utf-8")
+
+                            if len(temp) == 2:
+                                break
+
+                        if temp != self.csma.jam_signal:
+                            self.make_stuff_package_output(stuff_package)
+                            stuff_package = temp
                         stuff_package = ""
 
             except serial.serialutil.SerialException:

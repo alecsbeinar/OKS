@@ -26,30 +26,31 @@ class Csma:
 
     def carrier_transmission(self, port: serial.Serial, data: str) -> int:
         encoded_data = data.encode("utf-8")
-        encoded_jam_data = (data + self.jam_signal).encode("utf-8")
+
+        collision_counter = 0
 
         is_busy = self.generate_busy(port)
         while is_busy:
             is_busy = self.generate_busy(port)
 
+        port.write(encoded_data)
+
         is_collision = self.generate_collision()
-        collision_counter = 0
         while is_collision:
+            port.write(self.jam_signal.encode("utf-8"))
+
             collision_counter += 1
             if collision_counter == 16:
                 return -1
+
             self.start_back_off(collision_counter)
 
             is_busy = self.generate_busy(port)
             while is_busy:
                 is_busy = self.generate_busy(port)
 
-            port.write(encoded_jam_data)
-            is_collision = self.generate_collision()
-
-        if not is_collision:
-            while port.inWaiting():
-                pass
             port.write(encoded_data)
+
+            is_collision = self.generate_collision()
 
         return collision_counter
